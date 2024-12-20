@@ -1,0 +1,264 @@
+<div class="step-text">
+<p>Asynchronous programming is an essential part of modern software development. It allows applications to execute tasks concurrently, enhancing the throughput, speed, and scalability of backend services and their resource consumption. Consider the following examples:</p>
+<ul><li><p>I/O-bound operations;</p></li><li><p>Connections to third-party network services;</p></li><li><p>File operations, and more.</p></li></ul>
+<p>It proves invaluable in situations where the system must continue processing other tasks while waiting for time-consuming operations to conclude.</p>
+<p>In this topic, we will delve deeper into asynchronous programming and explore the <code class="language-java">CompletableFuture</code> class, which offers a contemporary API for crafting asynchronous code in Java.</p>
+<h5 id="challenges-in-asynchronous-programming">Challenges in asynchronous programming</h5>
+<p>With the vast potential of asynchronous programming comes the complexity of its implementation. Here are some of the challenges encountered:</p>
+<ul><li><p><strong><a class="theory-lookup not-relevant" href="/learn/step/36674" rel="noopener noreferrer nofollow" target="_blank" title="In Java, concurrency control refers to the mechanisms that control the access of multiple threads to a shared resource, preventing unexpected or erroneous behavior. | A critical section is a region of code that accesses a shared resource and should not be executed by more than one thread at the same time. The monitor is a special mechanism that controls concurrent access to an object, and in Java, each object has an associated implicit monitor. A thread can acquire a monitor, and then other threads cannot acquire this monitor at the same time. They will wait until the owner (the thread that acquired the monitor) releases it. This way, a thread can be locked on a monitor, ensuring that only one thread can access the critical section at a time. Concurrent collections, such as a concurrent queue, are often used to organize communication between multiple threads within an application by exchanging data.">Concurrency control</a></strong>: Managing multiple execution threads can be intricate, especially when sharing resources or data. Proper synchronization is paramount to prevent issues like race conditions, deadlocks, or data inconsistencies.</p></li><li><p><strong><a class="theory-lookup not-relevant" href="/learn/step/36674" rel="noopener noreferrer nofollow" target="_blank" title="In Java, error handling refers to the method used to manage and respond to unexpected conditions, or exceptions, that occur during program execution. | It allows the program to continue running instead of abruptly stopping. Java has a hierarchy of exception classes that can be caught and handled using the try-catch block, with the finally block ensuring that certain code runs regardless of exception occurrence. Error handling is used to handle exceptional events such as division by zero, file not found, and other unexpected cases. It is also capable of highlighting warnings about complex errors and weak points in your code, as well as providing tips on how to improve it.">Error handling</a></strong>: Asynchronous code errors can be trickier to manage than those in synchronous code. Exceptions thrown asynchronously may not propagate to the main execution thread, making them elusive and harder to address.</p></li><li><p><strong>Debugging</strong>: Debugging asynchronous operations can pose challenges due to the nonlinear execution flow. Conventional debugging tools, often designed for synchronous, sequential code, might not offer a comprehensive view of the asynchronous application's activities.</p></li><li><p><strong>Code complexity</strong>: Asynchronous code can rapidly become intricate and challenging to decipher, especially when dealing with nested callbacks, colloquially termed "callback hell." Such complexity can make the code harder to maintain and understand.</p></li></ul>
+<h5 id="limitations-of-the-future-class">Limitations of the "Future" class</h5>
+<p>The initial approach to asynchronous programming in Java was introduced through the <code class="language-java">Future</code> class. While it serves as a mechanism for managing asynchronous operations, it possesses several limitations that hinder its convenience. Here's a closer look:</p>
+<ol><li><p><strong>Inability to manually complete</strong>:<strong> </strong>The <code class="language-java">Future</code> class doesn't allow manual completion of a <code class="language-java">Future</code>. Once you instantiate a <code class="language-java">Future</code> task, its execution remains beyond your control.</p><pre><code class="language-java">ExecutorService executorService = Executors.newSingleThreadExecutor(); // creates a single thread
+Callable&lt;String&gt; asyncTask = () -&gt; { //  task returns the string "Hello world" after 1 minute
+   int ONE_MINUTE = 60000;   
+   Thread.sleep(ONE_MINUTE);
+   return "Hello from future!";
+};
+Future&lt;String&gt; future = executorService.submit(asyncTask); // hope that future will be complete
+</code></pre><p>For instance, there's no mechanism to set a default value to a <code class="language-java">Future</code> or complete it based on specific conditions. You won't find a method akin to <code class="language-java">future.complete("default string value")</code>.<br/> </p></li><li><p><strong>No notification upon completion</strong>: The <code class="language-java">Future</code> class doesn't offer notifications upon task completion. While you can employ <code class="language-java">Future.get()</code> to retrieve the result, this method halts the execution of your program.</p><pre><code class="language-java">ExecutorService executorService = Executors.newSingleThreadExecutor(); // creates a single thread
+Callable&lt;String&gt; asyncTask = () -&gt; { //  task returns the string "Hello from future" after 10 minutes
+    int TEN_MINUTES = 600000;
+    Thread.sleep(TEN_MINUTES);
+    return "Hello from future!";
+};
+Future&lt;String&gt; future = executorService.submit(asyncTask);
+
+try {
+    String result = future.get(); // this will block until the result is available
+} catch (InterruptedException | ExecutionException e) {
+    // Handle exception
+}
+</code></pre><p>Additionally, you cannot attach a callback function to the <code class="language-java">Future</code> to trigger post-completion of the asynchronous task.<br/> </p></li><li><p><strong>Absence of <a class="theory-lookup not-relevant" href="/learn/step/36674" rel="noopener noreferrer nofollow" target="_blank" title="In Java, exception handling is a method to manage and respond to unexpected conditions, or exceptions, that occur during program execution, allowing the program to continue running instead of abruptly stopping. | Java has a hierarchy of exception classes that can be caught and handled using the try-catch block, with the finally block ensuring certain code runs regardless of exception occurrence. When a line of code throws an exception, the Java runtime system attempts to find a suitable handler for it. Handlers can be located in the same method where the exception occurred or in the calling method. The order of exception handling is important, with more specific handlers written before more general ones.">exception handling</a></strong>: When a <code class="language-java">Future</code> task encounters an exception, it's encapsulated within an <code class="language-java">ExecutionException</code> and manifested through the <code class="language-java">get()</code> method. The sole method for error mitigation entails enclosing the <code class="language-java">get()</code> within a <code class="language-java">try-catch</code> block and managing the prevalent <code class="language-java">ExecutionException</code>.</p><pre><code class="language-java">// FutureTaskExample.java
+Future&lt;String&gt; futureWithException = executorService.submit(() -&gt; {
+    throw new RuntimeException("Exception while some operations!");
+});
+
+try {
+    String result = futureWithException.get(); // Throws ExecutionException
+} catch (InterruptedException | ExecutionException e) {
+    // Handle exception
+}
+</code></pre></li><li><p><strong>Lack of support for merging futures</strong>: The <code class="language-java">Future</code> class doesn't supply utilities to amalgamate multiple <code class="language-java">Futures</code> into a unified entity. If you're dealing with an assortment of <code class="language-java">Futures</code> and aim to generate a new <code class="language-java">Future</code> completed upon the culmination of all original tasks, manual orchestration is imperative.</p></li></ol>
+<h5 id="completablefuture-api">CompletableFuture API</h5>
+<p><code class="language-java">CompletableFuture</code> is a Java class that simplifies the process of writing asynchronous, non-blocking, and multi-threaded code.</p>
+<p>Introduced in Java 8 within the <code class="language-java">java.util.concurrent</code> package, <code class="language-java">CompletableFuture</code> enhances the original <code class="language-java">Future</code> class, addressing many of the limitations we discussed earlier.</p>
+<p>Let's explore some key methods offered by the <code class="language-java">CompletableFuture</code> API.</p>
+<ul><li><p><code class="language-java">get()</code>, <code class="language-java">getNow()</code>, <code class="language-java">complete()</code></p><p>Here's a basic example of retrieving results from a <code class="language-java">CompletableFuture</code> object.</p><pre><code class="language-java">CompletableFuture&lt;String&gt; completableFuture = new CompletableFuture&lt;&gt;(); // create CompletableFuture
+
+try {
+    // block the main thread, due to no value in completableFuture
+    // completableFuture.get();
+
+    // default value, when completableFuture is not completed
+    String defaultValue = completableFuture.getNow("value before complete future");
+
+    completableFuture.complete("value from future");
+    String valueAfterComplete = completableFuture.get(); // get value future was completed
+
+    System.out.println(defaultValue);
+    System.out.println(valueAfterComplete);
+} catch (InterruptedException | ExecutionException e) {
+    e.printStackTrace();
+}</code></pre><p>The output will be:</p><pre><code class="language-java">value before complete future
+value from future</code></pre></li><li><p><code class="language-java">supplyAsync()</code>, <code class="language-java">runAsync()</code></p><p>A major feature of <code class="language-java">CompletableFuture</code> is its ability to run asynchronous operations. The methods <code class="language-java">supplyAsync()</code> and <code class="language-java">runAsync()</code> allow for operations to execute in a separate thread without blocking the main one. To illustrate this, we'll also display the thread executing the code:</p><pre><code class="language-java">System.out.println("Main thread: " + Thread.currentThread().getName());
+CompletableFuture&lt;Void&gt; voidFuture = CompletableFuture.runAsync(() -&gt; {
+    try {
+        int ONE_SECOND = 1000;
+        Thread.sleep(ONE_SECOND);
+        System.out.println("Void future thread: " + Thread.currentThread().getName());
+    } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+    }
+});
+
+CompletableFuture&lt;String&gt; futureWithValue = CompletableFuture.supplyAsync(() -&gt; {
+    try {
+        int ONE_SECOND = 1000;
+        Thread.sleep(ONE_SECOND);
+        System.out.println("Future with value thread: " + Thread.currentThread().getName());
+        return "Value from future after 1 second";
+    } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+    }
+});
+
+System.out.println("Some info from main thread");
+voidFuture.get();
+String valueFromFuture = futureWithValue.get();
+System.out.println(valueFromFuture);</code></pre><p>The output will be:</p><pre><code class="language-java">Main thread: main
+Some info from main thread
+Void future thread: ForkJoinPool.commonPool-worker-1
+Future with value thread: ForkJoinPool.commonPool-worker-2
+Value from future after 1 second</code></pre><p> </p></li><li><p><code class="language-java">join()</code>, <code class="language-java">isCancelled()</code>, <code class="language-java">isDone()</code></p><p>Next, we'll examine methods that check the status of a <code class="language-java">CompletableFuture</code> object. The method <code class="language-java">join()</code> functions similarly to <code class="language-java">get()</code>, but it throws a <code class="language-java">CompletionException</code> if there's an underlying exception. The methods <code class="language-java">isCancelled()</code> and <code class="language-java">isDone()</code> indicate whether the future has been completed or canceled. Here's an example that simulates a delayed operation and uses these methods:</p><pre><code class="language-java">CompletableFuture&lt;String&gt; future = CompletableFuture.supplyAsync(() -&gt; {
+    try {
+        int ONE_SECOND = 1000;
+        Thread.sleep(ONE_SECOND); // simulate some delay
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    return "Hello from future after 1 second";
+});
+
+// check if task is done or canceled
+System.out.println("Future done      -&gt; " + future.isDone());
+System.out.println("Future canceled -&gt; " + future.isCancelled());
+
+// use join() to wait when the CompletableFuture will be finished and get the result
+String result = future.join();
+System.out.println("Join result      -&gt; " + result);
+
+// check again if task is done or canceled
+System.out.println("Future done      -&gt; " + future.isDone());
+System.out.println("Future canceled -&gt; " + future.isCancelled());</code></pre><p>The output will be:</p><pre><code class="language-java">Future done      -&gt; false
+Future canceled -&gt; false
+Join result      -&gt; Hello from future after 1 second
+Future done      -&gt; true
+Future canceled -&gt; false</code></pre><p> </p></li><li><p><code class="language-java">thenSupply()</code>, <code class="language-java">thenApply()</code>, <code class="language-java">thenRun()</code>, <code class="language-java">thenAccept()</code></p><p>Methods prefixed with "then"<em> </em>facilitate chaining operations by attaching callback functions. These functions are automatically invoked when the <code class="language-java">CompletableFuture</code> completes.</p><pre><code class="language-java">CompletableFuture&lt;String&gt; completableFuture = CompletableFuture
+        .supplyAsync(() -&gt; "thenApply(): First supply, ") // creates first supply
+        .thenApply(supplyResult -&gt; supplyResult + "then first callback") //apply as many callback as you need
+        .thenApply(thenApplyResult -&gt; thenApplyResult + "and second callback");
+
+System.out.println(completableFuture.get());
+
+CompletableFuture
+        .supplyAsync(() -&gt; "thenAccept(): First supply, ")
+        .thenApply(supplyResult -&gt; supplyResult + "then first callback")
+        .thenAccept(thenAcceptResult -&gt; System.out.println(thenAcceptResult + " and accept the result"))
+        .get(); // return void CompletableFuture and apply the function with value from previous chain
+
+CompletableFuture
+        .supplyAsync(() -&gt; "First supply, ")
+        .thenApply(supplyResult -&gt; supplyResult + "then first callback")
+        .thenRun(() -&gt; System.out.println("thenRun(): Just run separate function"))
+        .get(); // return void CompletableFuture and apply the function</code></pre><p>The output will be:</p><pre><code class="language-java">thenApply(): First supply, then first callbackand second callback
+thenAccept(): First supply, then first callback and accept the result
+thenRun(): Just run separate function</code></pre><p> </p></li><li><p><code class="language-java">thenApplyAsync()</code>, <code class="language-java">thenAcceptAsync()</code></p><p>While the previously discussed methods enable the attachment of numerous callbacks that all execute in one thread, there are times when callbacks need to run in different threads. For such scenarios, methods suffixed with "async" come into play<em>.</em></p><p>Here's a comparison of threads used with <code class="language-java">thenApply()</code> versus <code class="language-java">thenApplyAsync()</code>:</p><pre><code class="language-java">System.out.println("Main thread: " + Thread.currentThread().getName());
+CompletableFuture
+        .supplyAsync(() -&gt; Thread.currentThread().getName() + " | ")
+        .thenApply(supplyResult -&gt; supplyResult + Thread.currentThread().getName() + " | ")
+        .thenAccept(thenApplyResult -&gt; System.out.println(thenApplyResult + Thread.currentThread().getName()))
+        .get();</code></pre><p>We observe that in the first example, all callbacks are executed using the same separate thread:</p><pre><code class="language-java">Main thread: main
+ForkJoinPool.commonPool-worker-1 | ForkJoinPool.commonPool-worker-1 | ForkJoinPool.commonPool-worker-1</code></pre><p>In the second example, we employ <code class="language-java">thenApplyAsync()</code> and <code class="language-java">thenAcceptAsync()</code> methods:</p><pre><code class="language-java">System.out.println("Main thread: " + Thread.currentThread().getName());
+CompletableFuture
+        .supplyAsync(() -&gt; Thread.currentThread().getName() + " | ")
+        .thenApplyAsync(supplyResult -&gt; supplyResult + Thread.currentThread().getName() + " | ")
+        .thenAcceptAsync(thenApplyResult -&gt; System.out.println(thenApplyResult + Thread.currentThread().getName()))
+        .get();</code></pre><p>In the output of the second example, we notice that different threads are used for the callback functions:</p><pre><code class="language-java">Main thread: main
+ForkJoinPool.commonPool-worker-1 | ForkJoinPool.commonPool-worker-1 | ForkJoinPool.commonPool-worker-2</code></pre></li></ul>
+<h5 id="error-handling">Error handling</h5>
+<p>There are two methods available for handling exceptions during asynchronous chain operations. The examples provided below detail their usage.</p>
+<pre><code class="language-java">int negativeNumber = -1;
+
+// example with exceptionally()
+CompletableFuture&lt;String&gt; future1 = CompletableFuture.supplyAsync(() -&gt; {
+    if (negativeNumber &lt; 0) {
+        throw new IllegalArgumentException("Number in future1 is negative!");
+    } else {
+        return "Integer is positive!";
+    }
+}).exceptionally(e -&gt; { // catch only exception
+    System.out.println("Exception message: " + e.getMessage());
+    return "Exceptionally: Exception is caught";
+});
+System.out.println("Future1 response: " + future1.get());
+
+// example with handle()
+CompletableFuture&lt;String&gt; future2 = CompletableFuture.supplyAsync(() -&gt; {
+    if (negativeNumber &lt; 0) {
+        throw new IllegalArgumentException("Number in future2 is negative!");
+    } else {
+        return "Integer is positive!";
+    }
+}).handle((response, e) -&gt; { // catch the response and the exception
+    if(e == null) return response; // if there is no exception, then just return response
+    System.out.println("Exception message: " + e.getMessage());
+    return "Handle: Exception is caught";
+});
+System.out.println("Future2 response: " + future2.get()); </code></pre>
+<p>In the output, all exceptions are caught:</p>
+<pre><code class="language-java">Exception message: java.lang.IllegalArgumentException: Number in future1 is negative!
+Future1 response: Exceptionally: Exception is caught
+Exception message: java.lang.IllegalArgumentException: Number in future2 is negative!
+Future2 response: Handle: Exception is caught</code></pre>
+<h5 id="practical-examples-with-multiple-completablefuture">Practical examples with multiple CompletableFuture</h5>
+<p>Let's delve into practical examples using <code class="language-java">CompletableFuture</code>. Imagine we're developing a food delivery service. We'll address two scenarios: sequential asynchronous invocation and joining multiple instances.<br/><br/>In the first example, we have the main method <code class="language-java">createOrder()</code>. Within it, we create a <code class="language-java">CompletableFuture</code> object, along with other methods that simulate individual processes.</p>
+<pre><code class="language-java">public static void main(String[] args) {
+    var futureOrder = createOrder("Pizza");
+
+    System.out.println("Waiting for Pizza...");
+    futureOrder.get();
+    System.out.println("Thread Main: " + Thread.currentThread().getName());
+    System.out.println("Order is done: " + futureOrder.isDone());
+}
+
+public static CompletableFuture createOrder(String product) {
+    return CompletableFuture
+            .supplyAsync(() -&gt; placeOrder(product))
+            .thenApply(order -&gt; sendConfirmation(order))
+            .thenAccept(confirmation -&gt; setForDelivery(confirmation));
+}
+
+public static String placeOrder(String product) {
+    System.out.println("Thread place order: " + Thread.currentThread().getName());
+    Thread.sleep(500);
+    System.out.println("Order placed for " + product);
+    return product;
+}
+
+public static boolean sendConfirmation(String orderConfirmation) {
+    System.out.println("Thread Confirmation: " + Thread.currentThread().getName());
+    Thread.sleep(500);
+    System.out.println("Confirmation was sent for order " + orderConfirmation);
+    return Objects.equals(orderConfirmation, "Pizza");
+}
+
+public static void setForDelivery(boolean isConfirmed) {
+    System.out.println("Thread Delivery: " + Thread.currentThread().getName());
+    Thread.sleep(500);
+    if (isConfirmed){
+        System.out.println("Order is ready for delivery!");
+   }
+}</code></pre>
+<p>The output presents messages from methods, concluding with a final notification when the order is fulfilled:</p>
+<pre><code class="language-java">Waiting for Pizza...
+
+Thread place order: ForkJoinPool.commonPool-worker-1
+Order placed for Pizza
+
+Thread Confirmation: ForkJoinPool.commonPool-worker-1
+Confirmation was sent for order Pizza
+
+Thread Delivery: ForkJoinPool.commonPool-worker-1
+Order is ready for delivery!
+
+Thread Main: main
+Order is done: true</code></pre>
+<p> </p>
+<p>In the second example, assume several orders have been placed. You need to display a message when all of them are ready. We will leverage the <code class="language-java">placeOrder()</code> method from the previous example:</p>
+<pre><code class="language-java">public static void placeAllOrders() {
+    var pizza = CompletableFuture.supplyAsync(() -&gt; placeOrder("Pizza"));
+    var burger = CompletableFuture.supplyAsync(() -&gt; placeOrder("Burger"));
+    var pasta = CompletableFuture.supplyAsync(() -&gt; placeOrder("Pasta"));
+
+    var allOrders = CompletableFuture.allOf(pizza, burger, pasta);
+
+    // execute something when all "CompletableFuture" object will be completed
+    allOrders.thenRun(() -&gt; System.out.println("All orders placed!"));
+    allOrders.join(); // get result of combined CompletableFuture
+} </code></pre>
+<p>As a result, we observe that each <code class="language-java">CompletableFuture</code> has its own dedicated thread, and they might conclude in a varied sequence. Nevertheless, the final message is only displayed once all <code class="language-java">CompletableFuture</code> objects have concluded.</p>
+<pre><code class="language-java">Thread place order: ForkJoinPool.commonPool-worker-2
+Order placed for Burger
+
+Thread place order: ForkJoinPool.commonPool-worker-3
+Order placed for Pasta
+
+Thread place order: ForkJoinPool.commonPool-worker-1
+Order placed for Pizza
+
+All orders placed!</code></pre>
+<h5 id="conclusion">Conclusion</h5>
+<p>The <code class="language-java">CompletableFuture</code> class offers a powerful tool for managing asynchronous programming in Java.<br/>It transcends the limitations of the <code class="language-java">Future</code> class and presents a versatile API for various operations, such as:</p>
+<ul><li><p>Creating a pipeline to chain operations using methods like <code class="language-java">thenApply</code>, <code class="language-java">thenAccept</code>, <code class="language-java">thenCompose</code>, and others.</p></li><li><p>Combining results from different futures with <code class="language-java">allOf</code>.</p></li><li><p>Handling errors using <code class="language-java">exceptionally</code> and <code class="language-java">handle</code>.</p></li></ul>
+<p>By mastering <code class="language-java">CompletableFuture</code>, you can significantly enhance performance by optimizing the utilization of your application's resources.</p>
+</div>

@@ -1,0 +1,21 @@
+# course config files
+*.yaml
+
+# gradle
+.gradle/
+build
+
+
+# idea config
+.idea
+
+# old stages
+/Transaction Aggregator/*
+!/Transaction Aggregator/task/
+/Transaction Aggregator/task/*
+!/Transaction Aggregator/task/src
+!/Transaction Aggregator/task/build.gradle
+
+# Project exclude paths
+/Topics/Interruptions/Interrupting a thread/out/
+/Topics/Interruptions/Interrupting a thread/out/production/classes/
